@@ -52,19 +52,26 @@ async function generateCardBuffer(userName) {
 }
 
 async function uploadImageBuffer(buffer) {
-  const form = new FormData();
-  form.append("file", buffer, { filename: "card.png" });
-  form.append("network", "public");
+  const formData = new FormData();
+  formData.append("file", buffer, { filename: "card.png" });
+  formData.append("network", "public");
 
-  const r = await fetch("https://uploads.pinata.cloud/v3/files", {
+  const res = await fetch("https://uploads.pinata.cloud/v3/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${JWT}`, ...form.getHeaders() },
-    body: form,
+    headers: { Authorization: `Bearer ${JWT}`, ...formData.getHeaders() },
+    body: formData,
   });
 
-  const data = await r.json();
+  const data = await res.json();
+  console.log("UPLOAD IMAGE RESPONSE:", data);
+
+  if (!data?.data?.cid) {
+    throw new Error("Pinata image upload failed: " + JSON.stringify(data));
+  }
+
   return data.data.cid;
 }
+
 
 async function uploadMetadataBuffer(imageCid, userName) {
   const metadata = {
@@ -79,19 +86,26 @@ async function uploadMetadataBuffer(imageCid, userName) {
 
   const buf = Buffer.from(JSON.stringify(metadata));
 
-  const form = new FormData();
-  form.append("file", buf, { filename: "metadata.json" });
-  form.append("network", "public");
+  const formData = new FormData();
+  formData.append("file", buf, { filename: "metadata.json" });
+  formData.append("network", "public");
 
-  const r = await fetch("https://uploads.pinata.cloud/v3/files", {
+  const res = await fetch("https://uploads.pinata.cloud/v3/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${JWT}`, ...form.getHeaders() },
-    body: form,
+    headers: { Authorization: `Bearer ${JWT}`, ...formData.getHeaders() },
+    body: formData,
   });
 
-  const data = await r.json();
+  const data = await res.json();
+  console.log("UPLOAD METADATA RESPONSE:", data);
+
+  if (!data?.data?.cid) {
+    throw new Error("Pinata metadata upload failed: " + JSON.stringify(data));
+  }
+
   return data.data.cid;
 }
+
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
