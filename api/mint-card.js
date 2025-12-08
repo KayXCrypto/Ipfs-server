@@ -1,14 +1,16 @@
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 import sharp from "sharp";
-import fs from "fs";
 import path from "path";
 import FormData from "form-data";
 import fetch from "node-fetch";
 
 const JWT = process.env.PINATA_JWT;
 
-// ---------------------------
-// Escape SVG text
-// ---------------------------
 function escapeSvgText(s) {
   return String(s)
     .replaceAll("&", "&amp;")
@@ -18,9 +20,6 @@ function escapeSvgText(s) {
     .replaceAll("'", "&apos;");
 }
 
-// ---------------------------
-// Generate card (Buffer only)
-// ---------------------------
 async function generateCardBuffer(userName) {
   const templatePath = path.join(process.cwd(), "templates/premiumcard.png");
 
@@ -35,101 +34,88 @@ async function generateCardBuffer(userName) {
   const safeName = escapeSvgText(userName.toUpperCase());
 
   const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-            <style>
-                .name { font-family: "Arial", sans-serif; font-size: ${fontSize}px; font-weight:700; transform-origin:${xPos}px ${yPos}px; transform: rotate(-24deg); }
-                .shadow { fill:black; opacity:0.45; }
-                .metal { fill:#C0C0C0; }
-            </style>
-            <text class="name shadow" x="${xPos}" y="${yPos + 4}">${safeName}</text>
-            <text class="name metal" x="${xPos}" y="${yPos}">${safeName}</text>
-        </svg>
-    `;
-
-  const svgBuffer = Buffer.from(svg);
+    <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+      <style>
+          .name { font-family: Arial; font-size: ${fontSize}px; font-weight:700; transform: rotate(-24deg);}
+          .shadow { fill:black; opacity:0.45; }
+          .main { fill:#C0C0C0; }
+      </style>
+      <text class="name shadow" x="${xPos}" y="${yPos + 4}">${safeName}</text>
+      <text class="name main" x="${xPos}" y="${yPos}">${safeName}</text>
+    </svg>
+  `;
 
   return await sharp(templatePath)
-    .composite([{ input: svgBuffer }])
+    .composite([{ input: Buffer.from(svg) }])
     .png()
     .toBuffer();
 }
 
-// ---------------------------
-// Upload Buffer → Pinata
-// ---------------------------
 async function uploadImageBuffer(buffer) {
-  const formData = new FormData();
-  formData.append("file", buffer, { filename: "card.png" });
-  formData.append("network", "public");
+  const form = new FormData();
+  form.append("file", buffer, { filename: "card.png" });
+  form.append("network", "public");
 
-  const res = await fetch("https://uploads.pinata.cloud/v3/files", {
+  const r = await fetch("https://uploads.pinata.cloud/v3/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${JWT}`, ...formData.getHeaders() },
-    body: formData,
+    headers: { Authorization: `Bearer ${JWT}`, ...form.getHeaders() },
+    body: form,
   });
 
-  const data = await res.json();
+  const data = await r.json();
   return data.data.cid;
 }
 
-// ---------------------------
-// Upload Metadata (Buffer)
-// ---------------------------
 async function uploadMetadataBuffer(imageCid, userName) {
   const metadata = {
-    name: `Arc USDC Premium Card`,
+    name: "Arc USDC Premium Card",
     description: "Premium NFT Card On Arc Chain",
     image: `ipfs://${imageCid}`,
     attributes: [
       { trait_type: "Level", value: "1" },
-      { trait_type: "User", value: userName },
-    ],
+      { trait_type: "User", value: userName }
+    ]
   };
 
-  const metadataBuffer = Buffer.from(JSON.stringify(metadata, null, 2));
+  const buf = Buffer.from(JSON.stringify(metadata));
 
-  const formData = new FormData();
-  formData.append("file", metadataBuffer, { filename: "metadata.json" });
-  formData.append("network", "public");
+  const form = new FormData();
+  form.append("file", buf, { filename: "metadata.json" });
+  form.append("network", "public");
 
-  const res = await fetch("https://uploads.pinata.cloud/v3/files", {
+  const r = await fetch("https://uploads.pinata.cloud/v3/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${JWT}`, ...formData.getHeaders() },
-    body: formData,
+    headers: { Authorization: `Bearer ${JWT}`, ...form.getHeaders() },
+    body: form,
   });
 
-  const data = await res.json();
+  const data = await r.json();
   return data.data.cid;
 }
 
-// ---------------------------
-// Vercel Serverless Handler
-// ---------------------------
 export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const { userName } = req.body;
-    if (!userName) return res.status(400).json({ error: "Missing userName" });
+    if (!userName)
+      return res.status(400).json({ error: "Missing userName" });
 
-    console.log("Generating card buffer...");
     const imgBuffer = await generateCardBuffer(userName);
 
-    console.log("Uploading image to Pinata...");
     const imageCid = await uploadImageBuffer(imgBuffer);
 
-    console.log("Uploading metadata...");
     const metadataCid = await uploadMetadataBuffer(imageCid, userName);
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       imageCid,
       metadataCid,
-      metadataUrl: `ipfs://${metadataCid}`,
+      metadataUrl: `ipfs://${metadataCid}`
     });
+
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error", details: err.message });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 }
