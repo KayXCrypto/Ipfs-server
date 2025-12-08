@@ -1,0 +1,11 @@
+{
+  "name": "Arc Premium Card",
+  "description": "Arc Premium Card USDC.",
+  "image": "ipfs://bafybeid33v5m2xzwc64ziij4mbgryrfwkdjraaicvnh4koa2xltax3uu5i",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "1"
+    }
+  ]
+}
