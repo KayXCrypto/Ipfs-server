@@ -94,28 +94,44 @@ async function uploadMetadataBuffer(imageCid, userName) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
 
   try {
-    const { userName } = req.body;
-    if (!userName)
-      return res.status(400).json({ error: "Missing userName" });
+    // Parse JSON body manually for Vercel
+    const buffers = [];
+    for await (const chunk of req) {
+      buffers.push(chunk);
+    }
+    const data = JSON.parse(Buffer.concat(buffers).toString() || "{}");
 
+    const { userName } = data;
+    if (!userName) {
+      return res.status(400).json({ error: "Missing userName" });
+    }
+
+    console.log("Generating card...");
     const imgBuffer = await generateCardBuffer(userName);
 
+    console.log("Uploading image...");
     const imageCid = await uploadImageBuffer(imgBuffer);
 
+    console.log("Uploading metadata...");
     const metadataCid = await uploadMetadataBuffer(imageCid, userName);
 
     return res.status(200).json({
       success: true,
       imageCid,
       metadataCid,
-      metadataUrl: `ipfs://${metadataCid}`
+      metadataUrl: `ipfs://${metadataCid}`,
     });
 
   } catch (err) {
-    res.status(500).json({ error: "Server error", details: err.message });
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
   }
 }
+
