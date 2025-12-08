@@ -3,6 +3,7 @@ export const config = {
     bodyParser: true,
   },
 };
+export const runtime = "nodejs";
 
 import sharp from "sharp";
 import path from "path";
@@ -10,6 +11,7 @@ import FormData from "form-data";
 import fetch from "node-fetch";
 
 const JWT = process.env.PINATA_JWT;
+console.log("PINATA_JWT:", JWT ? "OK" : "MISSING");
 
 function escapeSvgText(s) {
   return String(s)
