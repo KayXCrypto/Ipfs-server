@@ -2,6 +2,7 @@
 import sharp from "sharp";
 import FormData from "form-data";
 import fetch from "node-fetch";
+import path from "path";
 
 const JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJhODA1ZTA4NS1lM2NlLTQ3YjMtYjgwOS04MTAzMzQwZjYwZGQiLCJlbWFpbCI6Im5ndXllbmR1Y21hbmgyMDk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJlNThkYzdiOWUxMDZkOTRlNzdiNSIsInNjb3BlZEtleVNlY3JldCI6ImI5N2FjMTZkMTdjZmY1MWY1NGRkYzFjYTkzNDQwOGM1MzAyMjU1YTA4ZTJiM2M4ZDU1MmM4ZjZlNWEyNzkzZDAiLCJleHAiOjE3OTY1NTAxNjJ9.EG68tWq4UBeunCQs-tA0c8AymFMvuVj3Pv4IUnYE\_0s";
 
@@ -87,7 +88,7 @@ export default async function handler(req, res) {
     if (!JWT) return res.status(500).json({ error: "Missing JWT env var" });
     if (!userName) return res.status(400).json({ error: "Missing userName" });
 
-    const templatePath = "public/premiumcard.png"; // đặt template ở đây
+const templatePath = path.join(process.cwd(), "public", "premiumcard.png");
 
     const cardBuffer = await composeCardBuffer(userName, templatePath, {
       rotateDeg: -24, leftRatio: 0.05, bottomRatio: 0.35, fontScale: 0.025
