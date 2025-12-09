@@ -22,39 +22,46 @@ async function composeCardBuffer(userName, templateBuffer, opts = {}) {
     rotateDeg = 15
   } = opts;
 
-  // lấy metadata từ buffer
   const meta = await sharp(templateBuffer).metadata();
   const W = meta.width;
   const H = meta.height;
 
+  const safeName = escapeSvgText(userName.toUpperCase());
   const fontSize = Math.round(W * fontScale);
   const xPos = Math.round(W * leftRatio);
   const yPos = Math.round(H - H * bottomRatio);
-  const safeName = escapeSvgText(userName.toUpperCase());
 
   const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-    <style>
-      .name {
-        font-family: "Arial", sans-serif;
-        font-size: ${fontSize}px;
-        font-weight: 700;
-        letter-spacing: 4px;
-        transform-origin: ${xPos}px ${yPos}px;
-        transform: rotate(${rotateDeg}deg);
-      }
-      .shadow { fill: black; opacity: 0.45; }
-      .metal { fill: ${colorHex}; }
-    </style>
-    <text class="name shadow" x="${xPos}" y="${yPos + 4}">${safeName}</text>
-    <text class="name metal" x="${xPos}" y="${yPos}">${safeName}</text>
-  </svg>`;
+    <text 
+      x="${xPos}" 
+      y="${yPos + 4}" 
+      font-family="sans-serif"
+      font-size="${fontSize}px"
+      font-weight="700"
+      fill="black"
+      opacity="0.45"
+      transform="rotate(${rotateDeg}, ${xPos}, ${yPos})"
+    >${safeName}</text>
+
+    <text 
+      x="${xPos}" 
+      y="${yPos}" 
+      font-family="sans-serif"
+      font-size="${fontSize}px"
+      font-weight="700"
+      fill="${colorHex}"
+      transform="rotate(${rotateDeg}, ${xPos}, ${yPos})"
+    >${safeName}</text>
+  </svg>
+  `;
 
   return await sharp(templateBuffer)
-    .composite([{ input: Buffer.from(svg), left: 0, top: 0 }])
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
     .png()
     .toBuffer();
 }
+
 
 async function uploadBufferToPinata(buffer, filename, contentType) {
   const formData = new FormData();
