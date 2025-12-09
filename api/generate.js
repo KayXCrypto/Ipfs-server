@@ -87,7 +87,7 @@ export default async function handler(req, res) {
     if (!JWT) return res.status(500).json({ error: "Missing JWT env var" });
     if (!userName) return res.status(400).json({ error: "Missing userName" });
 
-    const templatePath = "templates/premiumcard.png"; // đặt template ở đây
+    const templatePath = "public/premiumcard.png"; // đặt template ở đây
 
     const cardBuffer = await composeCardBuffer(userName, templatePath, {
       rotateDeg: -24, leftRatio: 0.05, bottomRatio: 0.35, fontScale: 0.025
