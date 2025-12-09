@@ -91,7 +91,7 @@ export default async function handler(req, res) {
 const templatePath = path.join(process.cwd(), "public", "premiumcard.png");
 
     const cardBuffer = await composeCardBuffer(userName, templatePath, {
-      rotateDeg: -24, leftRatio: 0.05, bottomRatio: 0.35, fontScale: 0.025
+      rotateDeg: 15, leftRatio: 0.06, bottomRatio: 0.18, fontScale: 0.06
     });
 
     const imageCid = await uploadBufferToPinata(cardBuffer, `card_${userName}.png`, "image/png");
