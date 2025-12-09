@@ -1,8 +1,6 @@
-
 import sharp from "sharp";
 import FormData from "form-data";
 import fetch from "node-fetch";
-import path from "path";
 
 const JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJhODA1ZTA4NS1lM2NlLTQ3YjMtYjgwOS04MTAzMzQwZjYwZGQiLCJlbWFpbCI6Im5ndXllbmR1Y21hbmgyMDk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJlNThkYzdiOWUxMDZkOTRlNzdiNSIsInNjb3BlZEtleVNlY3JldCI6ImI5N2FjMTZkMTdjZmY1MWY1NGRkYzFjYTkzNDQwOGM1MzAyMjU1YTA4ZTJiM2M4ZDU1MmM4ZjZlNWEyNzkzZDAiLCJleHAiOjE3OTY1NTAxNjJ9.EG68tWq4UBeunCQs-tA0c8AymFMvuVj3Pv4IUnYE\_0s";
 
@@ -15,7 +13,7 @@ function escapeSvgText(s) {
     .replaceAll("'", '&amp;apos;');
 }
 
-async function composeCardBuffer(userName, templatePath, opts = {}) {
+async function composeCardBuffer(userName, templateBuffer, opts = {}) {
   const {
     leftRatio = 0.06,
     bottomRatio = 0.18,
@@ -24,9 +22,11 @@ async function composeCardBuffer(userName, templatePath, opts = {}) {
     rotateDeg = 15
   } = opts;
 
-  const meta = await sharp(templatePath).metadata();
+  // lấy metadata từ buffer
+  const meta = await sharp(templateBuffer).metadata();
   const W = meta.width;
   const H = meta.height;
+
   const fontSize = Math.round(W * fontScale);
   const xPos = Math.round(W * leftRatio);
   const yPos = Math.round(H - H * bottomRatio);
@@ -50,12 +50,10 @@ async function composeCardBuffer(userName, templatePath, opts = {}) {
     <text class="name metal" x="${xPos}" y="${yPos}">${safeName}</text>
   </svg>`;
 
-  const cardBuf = await sharp(templatePath)
+  return await sharp(templateBuffer)
     .composite([{ input: Buffer.from(svg), left: 0, top: 0 }])
     .png()
     .toBuffer();
-
-  return cardBuf;
 }
 
 async function uploadBufferToPinata(buffer, filename, contentType) {
@@ -85,17 +83,27 @@ export default async function handler(req, res) {
     const payload = method === 'POST' ? req.body : req.query;
     const userName = payload?.userName;
 
-    if (!JWT) return res.status(500).json({ error: "Missing JWT env var" });
     if (!userName) return res.status(400).json({ error: "Missing userName" });
 
-const templatePath = path.join(process.cwd(), "public", "premiumcard.png");
+    // URL tới ảnh template trong thư mục /public
+    const imgUrl = `${req.headers['x-forwarded-proto'] || "https"}://${req.headers.host}/premiumcard.png`;
 
-    const cardBuffer = await composeCardBuffer(userName, templatePath, {
-      rotateDeg: 15, leftRatio: 0.06, bottomRatio: 0.18, fontScale: 0.06
+    // fetch ảnh từ URL
+    const imgRes = await fetch(imgUrl);
+    const templateBuffer = Buffer.from(await imgRes.arrayBuffer());
+
+    // render card có tên user
+    const cardBuffer = await composeCardBuffer(userName, templateBuffer, {
+      rotateDeg: 15,
+      leftRatio: 0.06,
+      bottomRatio: 0.18,
+      fontScale: 0.06
     });
 
+    // upload ảnh
     const imageCid = await uploadBufferToPinata(cardBuffer, `card_${userName}.png`, "image/png");
 
+    // metadata
     const metadata = {
       name: `Arc Premium Card — ${userName}`,
       description: "Premium NFT card generated dynamically.",
@@ -115,6 +123,7 @@ const templatePath = path.join(process.cwd(), "public", "premiumcard.png");
       metadataCid,
       metadataUrl: `ipfs://${metadataCid}`,
     });
+
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: e.message });
