@@ -150,7 +150,7 @@ app.post("/api/generate", async (req, res) => {
         if (!userName) return res.status(400).json({ error: "Missing userName" });
 
         const output = `card_${Date.now()}.png`;
-        const template = "template1.png";
+        const template = "premiumcard.png";
 
         console.log("Generating card...");
         await generateCard(userName, template, output, {
