@@ -2,6 +2,7 @@
 // IMPORTS
 // -------------------------------
 import express from "express";
+import cors from "cors"; // 🔥 Import CORS
 import sharp from "sharp";
 import fs from "fs";
 import FormData from "form-data";
@@ -11,14 +12,31 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+
+// -------------------------------
+// 🔥 CORS CONFIGURATION
+// -------------------------------
+const corsOptions = {
+    origin: [
+        'http://localhost:5173',      // Vite dev server
+        'https://arc-dapp-testnet.vercel.app/',      // React dev server
+        'https://arc-l1-blockchain.io.vn',      // Vite alternative port
+    ],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions)); // 🔥 Bật CORS với config
 app.use(express.json());
+
 const PORT = process.env.PORT || 3000;
 
 // -------------------------------
 // PINATA JWT FROM .env
 // -------------------------------
-const JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJhODA1ZTA4NS1lM2NlLTQ3YjMtYjgwOS04MTAzMzQwZjYwZGQiLCJlbWFpbCI6Im5ndXllbmR1Y21hbmgyMDk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJlNThkYzdiOWUxMDZkOTRlNzdiNSIsInNjb3BlZEtleVNlY3JldCI6ImI5N2FjMTZkMTdjZmY1MWY1NGRkYzFjYTkzNDQwOGM1MzAyMjU1YTA4ZTJiM2M4ZDU1MmM4ZjZlNWEyNzkzZDAiLCJleHAiOjE3OTY1NTAxNjJ9.EG68tWq4UBeunCQs-tA0c8AymFMvuVj3Pv4IUnYE\_0s";   // 🔥 để trong .env
-
+const JWT = process.env.PINATA_JWT || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJhODA1ZTA4NS1lM2NlLTQ3YjMtYjgwOS04MTAzMzQwZjYwZGQiLCJlbWFpbCI6Im5ndXllbmR1Y21hbmgyMDk3QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJlNThkYzdiOWUxMDZkOTRlNzdiNSIsInNjb3BlZEtleVNlY3JldCI6ImI5N2FjMTZkMTdjZmY1MWY1NGRkYzFjYTkzNDQwOGM1MzAyMjU1YTA4ZTJiM2M4ZDU1MmM4ZjZlNWEyNzkzZDAiLCJleHAiOjE3OTY1NTAxNjJ9.EG68tWq4UBeunCQs-tA0c8AymFMvuVj3Pv4IUnYE_0s";
 
 // -------------------------------
 // SAFE TEXT FOR SVG
@@ -31,7 +49,6 @@ function escapeSvgText(s) {
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&apos;');
 }
-
 
 // =====================================================
 // STEP 1 — Generate personalized card (Sharp)
@@ -82,7 +99,6 @@ async function generateCard(userName, templatePath, outputPath, options = {}) {
     return outputPath;
 }
 
-
 // =====================================================
 // STEP 2 — Upload image to Pinata
 // =====================================================
@@ -103,7 +119,6 @@ async function uploadImage(imagePath) {
     const res = await request.json();
     return res.data.cid;
 }
-
 
 // =====================================================
 // STEP 3 — Upload metadata JSON
@@ -139,52 +154,84 @@ async function uploadMetadata(imageCid, userName) {
     return res.data.cid;
 }
 
-
+// =====================================================
+// 📌 HEALTH CHECK ENDPOINT (Optional)
+// =====================================================
+app.get("/health", (req, res) => {
+    res.json({ status: "OK", message: "IPFS Server is running" });
+});
 
 // =====================================================
 // 📌 API ENDPOINT
 // =====================================================
 app.post("/api/generate", async (req, res) => {
     try {
-        const { userName } = req.body;
-        if (!userName) return res.status(400).json({ error: "Missing userName" });
+        const { userName, name, walletAddress } = req.body;
+        
+        // Accept both 'userName' and 'name' for flexibility
+        const finalName = userName || name;
+        
+        if (!finalName) {
+            return res.status(400).json({ error: "Missing userName or name" });
+        }
 
         const output = `card_${Date.now()}.png`;
         const template = "premiumcard.png";
 
-        console.log("Generating card...");
-        await generateCard(userName, template, output, {
+        console.log(`[${new Date().toISOString()}] Generating card for: ${finalName}`);
+        
+        await generateCard(finalName, template, output, {
             rotateDeg: -24,
             leftRatio: 0.05,
             bottomRatio: 0.35,
             fontScale: 0.025
         });
 
-        console.log("Uploading image...");
+        console.log(`[${new Date().toISOString()}] Uploading image to IPFS...`);
         const imageCid = await uploadImage(output);
 
-        console.log("Uploading metadata...");
-        const metadataCid = await uploadMetadata(imageCid, userName);
+        console.log(`[${new Date().toISOString()}] Uploading metadata to IPFS...`);
+        const metadataCid = await uploadMetadata(imageCid, finalName);
+
+        // Clean up generated image file (optional)
+        try {
+            fs.unlinkSync(output);
+            fs.unlinkSync("metadata.json");
+        } catch (cleanupErr) {
+            console.warn("Cleanup warning:", cleanupErr.message);
+        }
+
+        console.log(`[${new Date().toISOString()}] ✅ Success! Metadata CID: ${metadataCid}`);
 
         res.json({
             success: true,
-            user: userName,
+            user: finalName,
+            walletAddress: walletAddress || "N/A",
             imageCid,
+            imageUrl: `ipfs://${imageCid}`,
             metadataCid,
-            metadataUrl: `ipfs://${metadataCid}`
+            metadataUrl: `ipfs://${metadataCid}`,
+            ipfsGateway: {
+                image: `https://gateway.pinata.cloud/ipfs/${imageCid}`,
+                metadata: `https://gateway.pinata.cloud/ipfs/${metadataCid}`
+            }
         });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Server error", detail: err.message });
+        console.error(`[${new Date().toISOString()}] ❌ Error:`, err);
+        res.status(500).json({ 
+            error: "Server error", 
+            detail: err.message,
+            success: false
+        });
     }
 });
-
-
 
 // =====================================================
 // START SERVER
 // =====================================================
 app.listen(PORT, () => {
-    console.log(`🚀 API running on PORT ${PORT}`);
+    console.log(`🚀 IPFS API Server running on PORT ${PORT}`);
+    console.log(`📡 CORS enabled for: ${corsOptions.origin.join(', ')}`);
+    console.log(`🔗 Health check: http://localhost:${PORT}/health`);
 });
