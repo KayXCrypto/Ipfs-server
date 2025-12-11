@@ -19,7 +19,7 @@ const app = express();
 const corsOptions = {
     origin: [
         'http://localhost:5173',      // Vite dev server
-        'https://arc-dapp-testnet.vercel.app/',      // React dev server
+        'https://arc-dapp-testnet.vercel.app',      // React dev server
         'https://arc-l1-blockchain.io.vn',      // Vite alternative port
     ],
     methods: ['GET', 'POST', 'OPTIONS'],
